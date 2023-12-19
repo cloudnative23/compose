@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      PORT: http://0.0.0.0:80
+      NEXT_PUBLIC_API_ROOT: https://www.cloudnative23.com/api
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - backend.env
+    depends_on:
+      backend-db-migration:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  backend-db-migration:
+    build:
+      context: ./backend
+    env_file:
+      - backend.env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    entrypoint: ./manage.py migrate
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx-default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: uber
+      POSTGRES_USER: uber
+      POSTGRES_PASSWORD: uber
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  redis:
+    image: redis:latest
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
